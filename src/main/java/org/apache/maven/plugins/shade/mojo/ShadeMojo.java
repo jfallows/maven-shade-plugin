@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import org.apache.maven.RepositoryUtils;
 import org.apache.maven.artifact.Artifact;
 import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.metadata.ArtifactMetadataSource;
@@ -61,13 +62,17 @@ import org.apache.maven.plugins.shade.pom.PomWriter;
 import org.apache.maven.plugins.shade.relocation.Relocator;
 import org.apache.maven.plugins.shade.relocation.SimpleRelocator;
 import org.apache.maven.plugins.shade.resource.ResourceTransformer;
+import org.apache.maven.project.DefaultDependencyResolutionRequest;
 import org.apache.maven.project.DefaultProjectBuildingRequest;
+import org.apache.maven.project.DependencyResolutionException;
+import org.apache.maven.project.DependencyResolutionResult;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectHelper;
 import org.apache.maven.project.ProjectBuilder;
 import org.apache.maven.project.ProjectBuildingException;
 import org.apache.maven.project.ProjectBuildingRequest;
 import org.apache.maven.project.ProjectBuildingResult;
+import org.apache.maven.project.ProjectDependenciesResolver;
 import org.apache.maven.shared.dependency.graph.DependencyGraphBuilder;
 import org.apache.maven.shared.dependency.graph.DependencyGraphBuilderException;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
@@ -95,6 +100,9 @@ public class ShadeMojo
     extends AbstractMojo
     implements Contextualizable
 {
+    @Component
+    private ProjectDependenciesResolver projectDependenciesResolver;
+
     /**
      * The current Maven session.
      */
@@ -434,7 +442,7 @@ public class ShadeMojo
             }
         }
 
-        processArtifactSelectors( artifacts, artifactIds, sourceArtifacts, artifactSelector );
+        processArtifactSelectors( artifacts, artifactIds, testArtifacts, sourceArtifacts, artifactSelector );
 
         File outputJar = ( outputFile != null ) ? outputFile : shadedArtifactFileWithClassifier();
         File sourcesJar = shadedSourceArtifactFileWithClassifier();
@@ -593,9 +601,65 @@ public class ShadeMojo
         }
     }
 
-    private void processArtifactSelectors( Set<File> artifacts, Set<String> artifactIds, Set<File> sourceArtifacts,
-                                           ArtifactSelector artifactSelector )
+    private Set<Artifact> getTestArtifacts() throws MojoExecutionException
     {
+     
+        DefaultDependencyResolutionRequest dependencyResolutionRequest =
+                new DefaultDependencyResolutionRequest( project, session.getRepositorySession() );
+     
+        try
+        {
+            DependencyResolutionResult dependencyResolutionResult =
+                    projectDependenciesResolver.resolve( dependencyResolutionRequest );
+     
+            Set<Artifact> artifacts = new LinkedHashSet<Artifact>();
+            if ( dependencyResolutionResult.getDependencyGraph() != null
+                    && !dependencyResolutionResult.getDependencyGraph().getChildren().isEmpty() )
+            {
+                RepositoryUtils.toArtifacts( artifacts, dependencyResolutionResult.getDependencyGraph().getChildren(), 
+                        Collections.singletonList( project.getArtifact().getId() ), null );
+            }
+            
+            Set<Artifact> testArtifacts = new LinkedHashSet<Artifact>();
+            for ( Artifact artifact: artifacts )
+            {
+                if ( artifact.getScope().equals( Artifact.SCOPE_TEST ) )
+                {
+                    testArtifacts.add( artifact );
+                }
+            }
+            
+            return testArtifacts;
+
+        }
+        catch ( DependencyResolutionException ex )
+        {
+            throw new MojoExecutionException( ex.getMessage(), ex );
+        }
+    }
+    
+    private void processArtifactSelectors( Set<File> artifacts, Set<String> artifactIds, Set<File> testArtifacts,
+            Set<File> sourceArtifacts, ArtifactSelector artifactSelector ) throws MojoExecutionException
+    {
+        if ( shadeTestJar )
+        {
+            for ( Artifact artifact : getTestArtifacts() )
+            {
+                if ( !artifactSelector.isSelected( artifact ) )
+                {
+                    getLog().info( "Excluding " + artifact.getId() + " from the shaded test jar." );
+                    continue;
+                }
+                if ( "pom".equals( artifact.getType() ) )
+                {
+                    getLog().info( "Skipping pom dependency " + artifact.getId() + " in the shaded test jar." );
+                    continue;
+                }
+                getLog().info( "Including " + artifact.getId() + " in the shaded test jar." );
+                testArtifacts.add( artifact.getFile() );
+            }
+        }
+        
         for ( Artifact artifact : project.getArtifacts() )
         {
             if ( !artifactSelector.isSelected( artifact ) )
