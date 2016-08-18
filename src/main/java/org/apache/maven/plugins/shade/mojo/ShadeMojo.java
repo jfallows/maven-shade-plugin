@@ -389,6 +389,8 @@ public class ShadeMojo
      */
     private PlexusContainer plexusContainer;
 
+    private Set<Artifact> originalTestArtifacts;
+
     public void contextualize( Context context )
         throws ContextException
     {
@@ -599,11 +601,16 @@ public class ShadeMojo
                     + "'", e );
             }
         }
+        originalTestArtifacts = getTestArtifacts();
     }
 
     private Set<Artifact> getTestArtifacts() throws MojoExecutionException
     {
      
+        if ( !shadeTestJar) {
+            return Collections.emptySet();
+        }
+
         DefaultDependencyResolutionRequest dependencyResolutionRequest =
                 new DefaultDependencyResolutionRequest( project, session.getRepositorySession() );
      
@@ -641,23 +648,20 @@ public class ShadeMojo
     private void processArtifactSelectors( Set<File> artifacts, Set<String> artifactIds, Set<File> testArtifacts,
             Set<File> sourceArtifacts, ArtifactSelector artifactSelector ) throws MojoExecutionException
     {
-        if ( shadeTestJar )
+        for ( Artifact artifact : originalTestArtifacts )
         {
-            for ( Artifact artifact : getTestArtifacts() )
+            if ( !artifactSelector.isSelected( artifact ) )
             {
-                if ( !artifactSelector.isSelected( artifact ) )
-                {
-                    getLog().info( "Excluding " + artifact.getId() + " from the shaded test jar." );
-                    continue;
-                }
-                if ( "pom".equals( artifact.getType() ) )
-                {
-                    getLog().info( "Skipping pom dependency " + artifact.getId() + " in the shaded test jar." );
-                    continue;
-                }
-                getLog().info( "Including " + artifact.getId() + " in the shaded test jar." );
-                testArtifacts.add( artifact.getFile() );
+                getLog().info( "Excluding " + artifact.getId() + " from the shaded test jar." );
+                continue;
             }
+            if ( "pom".equals( artifact.getType() ) )
+            {
+                getLog().info( "Skipping pom dependency " + artifact.getId() + " in the shaded test jar." );
+                continue;
+            }
+            getLog().info( "Including " + artifact.getId() + " in the shaded test jar." );
+            testArtifacts.add( artifact.getFile() );
         }
         
         for ( Artifact artifact : project.getArtifacts() )
@@ -826,7 +830,11 @@ public class ShadeMojo
 
             artifacts.put( project.getArtifact(), new ArtifactId( project.getArtifact() ) );
 
-            for ( Artifact artifact : project.getArtifacts() )
+            Set<Artifact> allArtifacts = new HashSet<Artifact>();
+            allArtifacts.addAll( project.getArtifacts() );
+            allArtifacts.addAll( originalTestArtifacts );
+
+            for ( Artifact artifact : allArtifacts )
             {
                 artifacts.put( artifact, new ArtifactId( artifact ) );
             }
