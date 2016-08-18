@@ -45,20 +45,21 @@
   </prerequisites>
 
   <scm>
-    <connection>scm:svn:http://svn.apache.org/repos/asf/maven/plugins/tags/maven-shade-plugin-2.4.3</connection>
-    <developerConnection>scm:svn:https://svn.apache.org/repos/asf/maven/plugins/tags/maven-shade-plugin-2.4.3</developerConnection>
-    <url>http://svn.apache.org/viewvc/maven/plugins/tags/maven-shade-plugin-2.4.3</url>
+    <connection>scm:git:git:@github.com:gatling/maven-shade-plugin.git</connection>
+    <developerConnection>scm:git:git:@github.com:gatling/maven-shade-plugin.git</developerConnection>
+    <url>https://github.com/gatling/maven-shade-plugin</url>
+    <tag>HEAD</tag>
   </scm>
-  <issueManagement>
-    <system>jira</system>
-    <url>https://issues.apache.org/jira/browse/MSHADE</url>
-  </issueManagement>
-  <distributionManagement>
-    <site>
-      <id>apache.website</id>
-      <url>scm:svn:https://svn.apache.org/repos/infra/websites/production/maven/components/${maven.site.path}</url>
-    </site>
-  </distributionManagement>
+<!--   <issueManagement> -->
+<!--     <system>jira</system> -->
+<!--     <url>https://issues.apache.org/jira/browse/MSHADE</url> -->
+<!--   </issueManagement> -->
+<!--   <distributionManagement> -->
+<!--     <site> -->
+<!--       <id>apache.website</id> -->
+<!--       <url>scm:svn:https://svn.apache.org/repos/infra/websites/production/maven/components/${maven.site.path}</url> -->
+<!--     </site> -->
+<!--   </distributionManagement> -->
 
   <properties>
     <mavenVersion>3.1.1</mavenVersion>
