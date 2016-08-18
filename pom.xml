@@ -23,10 +23,9 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <artifactId>maven-plugins</artifactId>
-    <groupId>org.apache.maven.plugins</groupId>
-    <version>28</version>
-    <relativePath>../../pom/maven/maven-plugins/pom.xml</relativePath>
+	<groupId>org.sonatype.oss</groupId>
+	<artifactId>oss-parent</artifactId>
+	<version>9</version>
   </parent>
 
   <groupId>io.gatling</groupId>
@@ -50,16 +49,6 @@
     <url>https://github.com/gatling/maven-shade-plugin</url>
     <tag>HEAD</tag>
   </scm>
-<!--   <issueManagement> -->
-<!--     <system>jira</system> -->
-<!--     <url>https://issues.apache.org/jira/browse/MSHADE</url> -->
-<!--   </issueManagement> -->
-<!--   <distributionManagement> -->
-<!--     <site> -->
-<!--       <id>apache.website</id> -->
-<!--       <url>scm:svn:https://svn.apache.org/repos/infra/websites/production/maven/components/${maven.site.path}</url> -->
-<!--     </site> -->
-<!--   </distributionManagement> -->
 
   <properties>
     <mavenVersion>3.1.1</mavenVersion>
@@ -67,6 +56,7 @@
     <asmVersion>5.0.2</asmVersion>
     <maven.compiler.source>1.5</maven.compiler.source>
     <maven.compiler.target>1.5</maven.compiler.target>
+    <mavenPluginToolsVersion>3.4</mavenPluginToolsVersion>
   </properties>
 
   <contributors>
@@ -75,6 +65,9 @@
     </contributor>
     <contributor>
       <name>Anthony Dahanne</name>
+    </contributor>
+    <contributor>
+      <name>Stephane Landelle</name>
     </contributor>
   </contributors>
 
@@ -108,6 +101,7 @@
     <dependency>
       <groupId>org.apache.maven.plugin-tools</groupId>
       <artifactId>maven-plugin-annotations</artifactId>
+      <version>${mavenPluginToolsVersion}</version>
       <scope>provided</scope>
     </dependency>
 
@@ -158,6 +152,7 @@
     <dependency>
       <groupId>org.codehaus.plexus</groupId>
       <artifactId>plexus-component-annotations</artifactId>
+      <version>1.5.5</version>
       <scope>provided</scope>
     </dependency>
 
@@ -205,6 +200,13 @@
               <exclude>src/it/rerun-with-reloc/src/main/resources/some-ordinary-resource.txt</exclude>
               <exclude>src/it/rerun-without-reloc/src/main/resources/some-ordinary-resource.txt</exclude>
             </excludes>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-release-plugin</artifactId>
+          <configuration>
+            <releaseProfiles>noop</releaseProfiles>
           </configuration>
         </plugin>
       </plugins>
