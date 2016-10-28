@@ -381,8 +381,20 @@ public class ShadeMojo
     @Parameter( defaultValue = "false" )
     private boolean useBaseVersion;
 
+    /**
+     * Whether to shade the main project artifact, typically used with {{@link #shadeTestJar}.
+     */
+    @Parameter( defaultValue = "true" )
+    private boolean shadeJar;
+
     @Parameter( defaultValue = "false" )
     private boolean shadeTestJar;
+
+    /**
+     * The path to the test output file for the shaded test artifact.
+     */
+    @Parameter
+    private File testOutputFile;
 
     /**
      * @since 1.6
@@ -416,14 +428,17 @@ public class ShadeMojo
 
         if ( artifactSelector.isSelected( project.getArtifact() ) && !"pom".equals( project.getArtifact().getType() ) )
         {
-            if ( invalidMainArtifact() )
+            if ( shadeJar )
             {
-                createErrorOutput();
-                throw new MojoExecutionException( "Failed to create shaded artifact, "
-                    + "project main artifact does not exist." );
-            }
+                if ( invalidMainArtifact() )
+                {
+                    createErrorOutput();
+                    throw new MojoExecutionException( "Failed to create shaded artifact, "
+                        + "project main artifact does not exist." );
+                }
 
-            artifacts.add( project.getArtifact().getFile() );
+                artifacts.add( project.getArtifact().getFile() );
+            }
 
             if ( createSourcesJar )
             {
@@ -436,6 +451,11 @@ public class ShadeMojo
 
             if ( shadeTestJar )
             {
+                if (!invalidMainArtifact())
+                {
+                    testArtifacts.add( project.getArtifact().getFile() );
+                }
+
                 File file = shadedTestArtifactFile();
                 if ( file.isFile() )
                 {
@@ -448,7 +468,7 @@ public class ShadeMojo
 
         File outputJar = ( outputFile != null ) ? outputFile : shadedArtifactFileWithClassifier();
         File sourcesJar = shadedSourceArtifactFileWithClassifier();
-        File testJar = shadedTestArtifactFileWithClassifier();
+        File testJar = ( testOutputFile != null ) ? testOutputFile : shadedTestArtifactFileWithClassifier();
 
         // Now add our extra resources
         try
@@ -459,16 +479,19 @@ public class ShadeMojo
 
             List<ResourceTransformer> resourceTransformers = getResourceTransformers();
 
-            ShadeRequest shadeRequest = shadeRequest( artifacts, outputJar, filters, relocators, resourceTransformers );
-
-            shader.shade( shadeRequest );
-
-            if ( createSourcesJar )
+            if (shadeJar)
             {
-                ShadeRequest shadeSourcesRequest =
-                    createShadeSourcesRequest( sourceArtifacts, sourcesJar, filters, relocators, resourceTransformers );
+                ShadeRequest shadeRequest = shadeRequest( artifacts, outputJar, filters, relocators, resourceTransformers );
 
-                shader.shade( shadeSourcesRequest );
+                shader.shade( shadeRequest );
+
+                if ( createSourcesJar )
+                {
+                    ShadeRequest shadeSourcesRequest =
+                        createShadeSourcesRequest( sourceArtifacts, sourcesJar, filters, relocators, resourceTransformers );
+
+                    shader.shade( shadeSourcesRequest );
+                }
             }
 
             if ( shadeTestJar )
@@ -480,7 +503,7 @@ public class ShadeMojo
                 shader.shade( shadeSourcesRequest );
             }
 
-            if ( outputFile == null )
+            if ( shadeJar && outputFile == null )
             {
                 boolean renamed = false;
 
@@ -527,19 +550,28 @@ public class ShadeMojo
                             projectHelper.attachArtifact( project, "java-source", "sources", shadedSources );
                         }
 
-                        if ( shadeTestJar )
-                        {
-                            getLog().info( "Replacing original test artifact with shaded test artifact." );
-                            File shadedTests = shadedTestArtifactFile();
-
-                            replaceFile( shadedTests, testJar );
-
-                            projectHelper.attachArtifact( project, "jar", "tests", shadedTests );
-                        }
-
                         if ( createDependencyReducedPom )
                         {
                             createDependencyReducedPom( artifactIds );
+                        }
+                    }
+                }
+
+                if (shadeTestJar && testOutputFile == null)
+                {
+                    File shadedTests = shadedTestArtifactFile();
+                    if ( shadedTests != null )
+                    {
+                        if ( shadedArtifactAttached )
+                        {
+                            getLog().info( "Attaching shaded test artifact." );
+                            projectHelper.attachArtifact( project, "jar", shadedClassifierName + "-tests", shadedTests );
+                        }
+                        else
+                        {
+                            getLog().info( "Replacing original test artifact with shaded test artifact." );
+                            replaceFile( shadedTests, testJar );
+                            projectHelper.attachArtifact( project, "jar", "tests", shadedTests );
                         }
                     }
                 }
@@ -679,10 +711,13 @@ public class ShadeMojo
                 continue;
             }
 
-            getLog().info( "Including " + artifact.getId() + " in the shaded jar." );
+            if ( shadeJar )
+            {
+                getLog().info( "Including " + artifact.getId() + " in the shaded jar." );
 
-            artifacts.add( artifact.getFile() );
-            artifactIds.add( getId( artifact ) );
+                artifacts.add( artifact.getFile() );
+                artifactIds.add( getId( artifact ) );
+            }
 
             if ( createSourcesJar )
             {
@@ -691,6 +726,13 @@ public class ShadeMojo
                 {
                     sourceArtifacts.add( file );
                 }
+            }
+
+            if ( shadeTestJar )
+            {
+                getLog().info( "Including " + artifact.getId() + " in the shaded test jar." );
+
+                testArtifacts.add( artifact.getFile() );
             }
         }
     }
