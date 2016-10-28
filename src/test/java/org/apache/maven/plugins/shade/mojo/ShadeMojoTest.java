@@ -46,6 +46,7 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -170,6 +171,10 @@ public class ShadeMojoTest
         Field filtersField = ShadeMojo.class.getDeclaredField( "filters" );
         filtersField.setAccessible( true );
         filtersField.set( mojo, new ArchiveFilter[]{ archiveFilter } );
+
+        Field originalTestArtifacts = ShadeMojo.class.getDeclaredField( "originalTestArtifacts" );
+        originalTestArtifacts.setAccessible( true );
+        originalTestArtifacts.set( mojo, Collections.emptySet() );
 
         // invoke getFilters()
         Method getFilters = ShadeMojo.class.getDeclaredMethod( "getFilters", new Class[0] );
