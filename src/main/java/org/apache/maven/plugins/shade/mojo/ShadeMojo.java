@@ -35,7 +35,10 @@ import java.util.Map;
 import java.util.Set;
 
 import org.apache.maven.RepositoryUtils;
+import org.apache.maven.archiver.MavenArchiveConfiguration;
+import org.apache.maven.archiver.MavenArchiver;
 import org.apache.maven.artifact.Artifact;
+import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.artifact.factory.ArtifactFactory;
 import org.apache.maven.artifact.metadata.ArtifactMetadataSource;
 import org.apache.maven.artifact.repository.ArtifactRepository;
@@ -78,6 +81,9 @@ import org.apache.maven.shared.dependency.graph.DependencyGraphBuilderException;
 import org.apache.maven.shared.dependency.graph.DependencyNode;
 import org.codehaus.plexus.PlexusConstants;
 import org.codehaus.plexus.PlexusContainer;
+import org.codehaus.plexus.archiver.Archiver;
+import org.codehaus.plexus.archiver.jar.JarArchiver;
+import org.codehaus.plexus.archiver.jar.ManifestException;
 import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
 import org.codehaus.plexus.context.Context;
 import org.codehaus.plexus.context.ContextException;
@@ -387,6 +393,9 @@ public class ShadeMojo
     @Parameter( defaultValue = "true" )
     private boolean shadeJar;
 
+    @Parameter( defaultValue = "true" )
+    private boolean createTestJar;
+
     @Parameter( defaultValue = "false" )
     private boolean shadeTestJar;
 
@@ -395,6 +404,9 @@ public class ShadeMojo
      */
     @Parameter
     private File testOutputFile;
+
+    @Component( role = Archiver.class, hint = "jar" )
+    private JarArchiver jarArchiver;
 
     /**
      * @since 1.6
@@ -456,10 +468,39 @@ public class ShadeMojo
                     testArtifacts.add( project.getArtifact().getFile() );
                 }
 
-                File file = shadedTestArtifactFile();
-                if ( file.isFile() )
+                File testFile = shadedTestArtifactFile();
+
+                if ( createTestJar && !testFile.isFile() )
                 {
-                    testArtifacts.add( file );
+                    MavenArchiver archiver = new MavenArchiver();
+                    archiver.setArchiver(jarArchiver);
+                    archiver.setOutputFile(testFile);
+
+                    File testOutputDirectory = new File( project.getBuild().getTestOutputDirectory() );
+                    if ( !testOutputDirectory.exists() )
+                    {
+                        getLog().warn( "Test classes directory not found - skipping creation of test jar" );
+                    }
+                    else
+                    {
+                        String[] includes = new String[] { "**/**" };
+                        String[] excludes = new String[] { "**/package.html" };
+                        archiver.getArchiver().addDirectory( testOutputDirectory, includes, excludes );
+
+                        try
+                        {
+                            archiver.createArchive( session, project, new MavenArchiveConfiguration() );
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new MojoExecutionException( "Error creating test JAR", ex);
+                        }
+                    }
+                }
+
+                if ( testFile.isFile() )
+                {
+                    testArtifacts.add( testFile );
                 }
             }
         }
